@@ -12,6 +12,7 @@ from gpiozero import Button, LED, PWMLED
 # from picamera import PiCamera
 import numpy as np
 from copy import copy
+import random
 
 # led = LED(21)
 led = PWMLED(21)
@@ -36,8 +37,40 @@ loop_frame_index = 0
 p = pyaudio.PyAudio()
 # FORMAT = p.get_format_from_width(WIDTH)
 
+def save_loop(): # Save loop
+    wf = wave.open(WAVE_OUTPUT_FILENAME, 'wb')
+    wf.setnchannels(CHANNELS)
+    wf.setsampwidth(p.get_sample_size(p.get_format_from_width(WIDTH)))
+    wf.setframerate(RATE)
+    wf.writeframes(b''.join(loop_frames))
+    wf.close()
 
-def mix(audio1, audio2):
+
+def dummyMix():
+    size = 2500#1500 #6124
+    decodeddata1 = copy(np.frombuffer(bytes(size), dtype=dtype))
+    decodeddata2 = copy(np.frombuffer(bytes(size), dtype=dtype))
+    len(bytes(6124))
+    len(decodeddata1)
+    # This opperation is too slow making the noise garbage
+    (decodeddata1 * 0.8)
+    #(decodeddata1 * 0.8).astype(int).tobytes()
+
+
+def dummyMixFaster():
+    decodeddata1 = copy(np.frombuffer(bytes(6124), dtype=dtype))
+    decodeddata2 = copy(np.frombuffer(bytes(6124), dtype=dtype))
+    len(bytes(6124))
+    len(decodeddata1)
+    # This opperation is too slow making the noise garbage
+    #(decodeddata1 * 0.8).astype(int).tobytes()
+    # trying new method
+    for byte in bytes(1000):
+        (byte)
+        (bytes([int(byte * 0.8)]))
+
+
+def aaamix(audio1, audio2):
     decodeddata1 = copy(np.frombuffer(audio1, dtype=dtype))
     decodeddata2 = copy(np.frombuffer(audio2, dtype=dtype))
     #print('audio1: ', len(audio1))
@@ -47,12 +80,13 @@ def mix(audio1, audio2):
     len(audio1)
     len(decodeddata1)
     #newdata = decodeddata2 * 0.5 + decodeddata2 * 0.5
-
+    (decodeddata1 * 0.8).astype(int).tobytes()
     #newdata = decodeddata1 * 0.5 + decodeddata2 * 0.5
     #print(len(newdata))
     #print()
     #return newdata.tobytes()
-    return (decodeddata1 *0.8).astype(int).tobytes()
+    #return (decodeddata1 *0.8).astype(int).tobytes()
+    return audio1
 
 
 def callback(in_data, frame_count, time_info, status):
@@ -91,7 +125,10 @@ def callback(in_data, frame_count, time_info, status):
             #assert len(in_data) == len(loop_section), "loop and live data not equal length"
 
             #print(in_data)
-            out_data = mix(in_data, loop_section)
+            #out_data = mix(in_data, loop_section)
+            #out_data = mix(loop_section, loop_section)
+            out_data = dummyMix()
+            out_data = in_data
             #out_data = in_data
             #print(in_data)
             #print()
@@ -102,6 +139,25 @@ def callback(in_data, frame_count, time_info, status):
 
     #return in_data * 2, pyaudio.paContinue
     return out_data, pyaudio.paContinue
+
+
+def testcallback(in_data, frame_count, time_info, status):
+    """
+    0.003111600875854492 not looping
+    3.5762786865234375e-06 looping
+    """
+    if LOOPING:
+        start = time.time()
+        end = time.time()
+        if random.random() > 0.99: print(end - start, 'looping')
+        pass
+    else:
+        start = time.time()
+        dummyMixFaster()
+        end = time.time()
+        if random.random() > 0.99: print(end-start, 'not looping')
+
+    return in_data, pyaudio.paContinue
 
 
 info = p.get_host_api_info_by_index(0)
@@ -121,7 +177,7 @@ stream = p.open(format=p.get_format_from_width(WIDTH),
                 output=True,
                 # input_device_index=input_device_index,
                 output_device_index=input_device_index,
-                stream_callback=callback)
+                stream_callback=testcallback)
 
 print(".-.", p.get_default_input_device_info())
 
@@ -145,6 +201,7 @@ while True:
                 loop_frame_index = 0
             else:
                 led.off()
+                #save_loop()
 
     else:
         #print("Button is not pressed")
@@ -167,11 +224,3 @@ while True:
 stream.stop_stream()
 stream.close()
 p.terminate()
-
-# Save loop
-wf = wave.open(WAVE_OUTPUT_FILENAME, 'wb')
-wf.setnchannels(CHANNELS)
-wf.setsampwidth(p.get_sample_size(p.get_format_from_width(WIDTH)))
-wf.setframerate(RATE)
-wf.writeframes(b''.join(loop_frames))
-wf.close()
