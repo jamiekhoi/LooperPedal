@@ -14,6 +14,10 @@ import numpy as np
 from copy import copy
 import random
 
+import pyximport; pyximport.install()
+#import cytest
+#pyximport.install(pyimport=True)
+
 # led = LED(21)
 led = PWMLED(21)
 led.off()
@@ -23,19 +27,21 @@ on_led.value = 1
 # camera = PiCamera()
 button = Button(17)
 BUTTON_HELD = False
+
 LOOPING = False
+loop_frames = b''
+loop_frame_index = 0
 
 dtype = 'int16'
 WIDTH = 2
 CHANNELS = 2
 RATE = 44100
 WAVE_OUTPUT_FILENAME = "output.wav"
-
-loop_frames = b''
-loop_frame_index = 0
+CHUNK = 1024#4096#2048#1024 #2048
 
 p = pyaudio.PyAudio()
 # FORMAT = p.get_format_from_width(WIDTH)
+
 
 def save_loop(): # Save loop
     wf = wave.open(WAVE_OUTPUT_FILENAME, 'wb')
@@ -45,12 +51,32 @@ def save_loop(): # Save loop
     wf.writeframes(b''.join(loop_frames))
     wf.close()
 
+def mix(audio1, audio2):
+    decodeddata1 = copy(np.frombuffer(audio1, dtype=dtype))
+    decodeddata2 = copy(np.frombuffer(audio2, dtype=dtype))
+    #print('audio1: ', len(audio1))
+    #print('audio2: ', len(audio2))
+    #print('decodedata1: ', len(decodeddata1))
+    #print('decodedata2: ', len(decodeddata2))
+    len(audio1)
+    len(decodeddata1)
+    #newdata = decodeddata2 * 0.5 + decodeddata2 * 0.5
 
-def dummyMix():
-    size = 2500#1500 #6124
-    decodeddata1 = copy(np.frombuffer(bytes(size), dtype=dtype))
-    decodeddata2 = copy(np.frombuffer(bytes(size), dtype=dtype))
-    len(bytes(6124))
+    newdata = decodeddata1 * 0.5 + decodeddata2 * 0.5
+    #print(len(newdata))
+    #print()
+    return newdata.astype(int).tobytes()
+    #return (decodeddata1 *0.8).astype(int).tobytes()
+
+def dummyMixNumpy():
+    """
+    3.337860107421875e-06 looping
+    0.00529932975769043 not looping
+    """
+    CHUNK = 2500#1500 #6124
+    decodeddata1 = copy(np.frombuffer(bytes(CHUNK), dtype=dtype))
+    decodeddata2 = copy(np.frombuffer(bytes(CHUNK), dtype=dtype))
+    len(bytes(CHUNK))
     len(decodeddata1)
     # This opperation is too slow making the noise garbage
     (decodeddata1 * 0.8)
@@ -58,6 +84,10 @@ def dummyMix():
 
 
 def dummyMixFaster():
+    """
+    0.003111600875854492 not looping
+    3.5762786865234375e-06 looping
+    """
     decodeddata1 = copy(np.frombuffer(bytes(6124), dtype=dtype))
     decodeddata2 = copy(np.frombuffer(bytes(6124), dtype=dtype))
     len(bytes(6124))
@@ -70,23 +100,33 @@ def dummyMixFaster():
         (bytes([int(byte * 0.8)]))
 
 
-def aaamix(audio1, audio2):
-    decodeddata1 = copy(np.frombuffer(audio1, dtype=dtype))
-    decodeddata2 = copy(np.frombuffer(audio2, dtype=dtype))
-    #print('audio1: ', len(audio1))
-    #print('audio2: ', len(audio2))
-    #print('decodedata1: ', len(decodeddata1))
-    #print('decodedata2: ', len(decodeddata2))
-    len(audio1)
+def aaacythonMix():
+    decodeddata1 = copy(np.frombuffer(bytes(CHUNK), dtype=dtype))
+    decodeddata2 = copy(np.frombuffer(bytes(CHUNK), dtype=dtype))
+    len(bytes(CHUNK))
     len(decodeddata1)
-    #newdata = decodeddata2 * 0.5 + decodeddata2 * 0.5
-    (decodeddata1 * 0.8).astype(int).tobytes()
-    #newdata = decodeddata1 * 0.5 + decodeddata2 * 0.5
-    #print(len(newdata))
-    #print()
-    #return newdata.tobytes()
-    #return (decodeddata1 *0.8).astype(int).tobytes()
-    return audio1
+    # This opperation is too slow making the noise garbage
+    #(decodeddata1 * 0.8).astype(int).tobytes()
+    # trying new method
+    for byte in bytes(CHUNK):
+        (bytes([int(byte * 0.8)]))
+
+
+def testcallback(in_data, frame_count, time_info, status):
+    if LOOPING:
+        if random.random() > 0.99: print('len indata: ', len(in_data))
+        start = time.time()
+        end = time.time()
+        if random.random() > 0.99: print(end - start, 'looping')
+        pass
+    else:
+        start = time.time()
+        dummyMixFaster()
+        #cythonMix()
+        end = time.time()
+        if random.random() > 0.99: print(end-start, 'not looping')
+
+    return in_data, pyaudio.paContinue
 
 
 def callback(in_data, frame_count, time_info, status):
@@ -127,11 +167,16 @@ def callback(in_data, frame_count, time_info, status):
             #print(in_data)
             #out_data = mix(in_data, loop_section)
             #out_data = mix(loop_section, loop_section)
-            out_data = dummyMix()
-            out_data = in_data
+            start = time.time()
+            #out_data = dummyMixNumpy()
+            #out_data = in_data
+            out_data = mix(in_data, loop_section)
+            #out_data = cytest.cytestMix(in_data, loop_section)
             #out_data = in_data
             #print(in_data)
             #print()
+            end = time.time()
+            if random.random() > 0.99: print(end - start, 'not looping')
 
         else:
             out_data = in_data
@@ -139,25 +184,6 @@ def callback(in_data, frame_count, time_info, status):
 
     #return in_data * 2, pyaudio.paContinue
     return out_data, pyaudio.paContinue
-
-
-def testcallback(in_data, frame_count, time_info, status):
-    """
-    0.003111600875854492 not looping
-    3.5762786865234375e-06 looping
-    """
-    if LOOPING:
-        start = time.time()
-        end = time.time()
-        if random.random() > 0.99: print(end - start, 'looping')
-        pass
-    else:
-        start = time.time()
-        dummyMixFaster()
-        end = time.time()
-        if random.random() > 0.99: print(end-start, 'not looping')
-
-    return in_data, pyaudio.paContinue
 
 
 info = p.get_host_api_info_by_index(0)
@@ -177,7 +203,8 @@ stream = p.open(format=p.get_format_from_width(WIDTH),
                 output=True,
                 # input_device_index=input_device_index,
                 output_device_index=input_device_index,
-                stream_callback=testcallback)
+                frames_per_buffer=CHUNK,
+                stream_callback=callback)
 
 print(".-.", p.get_default_input_device_info())
 
