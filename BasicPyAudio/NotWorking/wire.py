@@ -3,7 +3,7 @@ PyAudio Example: Make a wire between input and output (i.e., record a
 few samples and play them back immediately).
 """
 """
-TODO: fix underrun occurred error alsa
+TODO: fix underrun occurred error alsa on pc
 """
 
 import pyaudio

@@ -5,6 +5,10 @@ few samples and play them back immediately).
 
 """PyAudio example: Record a few seconds of audio and save to a WAVE file."""
 
+"""
+TODO: fix underrun occurred error alsa on pc. records correctly though
+"""
+
 import pyaudio
 import wave
 
