@@ -135,7 +135,7 @@ def callback(in_data, frame_count, time_info, status):
     # assert frame_count == loop_section_length, 'frame_count: ' + str(frame_count) + '\tloop_section_length: ' + str(loop_section_length)
 
     if LOOPING:
-        loop_frames += in_data # TODO NB: check if append is correct here
+        loop_frames += in_data
         out_data = in_data
     else:
         if len(loop_frames) > 0:
@@ -186,15 +186,22 @@ def callback(in_data, frame_count, time_info, status):
     return out_data, pyaudio.paContinue
 
 
-info = p.get_host_api_info_by_index(0)
-numDevices = info.get('deviceCount')
+
 input_device_index = None
-for i in range(0, numDevices):
-    if (p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0:
-        print("Input Device id ", i, " - ", p.get_device_info_by_host_api_device_index(0, i).get('name'))
-        if "irig hd 2" in p.get_device_info_by_host_api_device_index(0, i).get('name').lower():
-            input_device_index = i
-            print("My inpute device is: ", i)
+while input_device_index is None:
+    time.sleep(2)
+    info = p.get_host_api_info_by_index(0)
+    numDevices = info.get('deviceCount')
+    for i in range(0, numDevices):
+        if (p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0:
+            print("Input Device id ", i, " - ", p.get_device_info_by_host_api_device_index(0, i).get('name'))
+            if "irig hd 2" in p.get_device_info_by_host_api_device_index(0, i).get('name').lower():
+                input_device_index = i
+                print("My inpute device is: ", i)
+
+print('-----------------------------------------------------------------------------')
+#exit()
+#hello
 
 stream = p.open(format=p.get_format_from_width(WIDTH),
                 channels=CHANNELS,
