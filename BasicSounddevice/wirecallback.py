@@ -3,7 +3,7 @@
 
 https://app.assembla.com/spaces/portaudio/git/source/master/test/patest_wire.c
 
-python BasicSounddevice/wirecallback_pc.py -i 7 -o 7 -c 1
+python BasicSounddevice/wirecallback.py -i 2 -o 2 -c 1
 
 """
 import argparse
