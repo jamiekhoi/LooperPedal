@@ -118,7 +118,7 @@ def queue_callback(in_data, frame_count, time_info, status):
 if os.uname().nodename.lower() == 'raspberrypi':
     # TODO(BUG): Loop playback not working on RaspberryPi
     print('Running on RaspberryPi')
-    CHUNK = 128#1024  # Todo: Higher chunk stopped underrun but also causes the audio output to be delayed
+    CHUNK = 16#128#1024  # Todo: Higher chunk stopped underrun but also causes the audio output to be delayed
 
     input_device_index = None
     while input_device_index is None:
