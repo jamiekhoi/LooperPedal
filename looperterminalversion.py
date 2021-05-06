@@ -14,7 +14,7 @@ dtype = 'int' + str(8*WIDTH)  # 'int16'
 CHANNELS = 2
 RATE = 44100
 WAVE_OUTPUT_FILENAME = "output.wav"
-CHUNK = 1024
+#CHUNK = 1024
 
 LOOPING = False
 loop_frames = b''
@@ -98,14 +98,14 @@ def loop_section_callback2(in_data, frame_count, time_info, status):
         else:
             out_data = bytes([0 for _ in range(frame_count * WIDTH * CHANNELS)])
 
+    assert len(out_data) == frame_count * CHANNELS * WIDTH
     return out_data, pyaudio.paContinue
 
 
 if os.uname().nodename.lower() == 'raspberrypi':
     # TODO(BUG): Loop playback not working on RaspberryPi
     print('Running on RaspberryPi')
-    CHUNK = 1024*4
-    #fd
+    CHUNK = 1024*3  # Higher chunk stopped underrun
 
     input_device_index = None
     while input_device_index is None:
@@ -126,9 +126,8 @@ if os.uname().nodename.lower() == 'raspberrypi':
                                    rate=RATE,
                                    input=True,
                                    output=True,
-                                   output_device_index=input_device_index,
-                                   # frames_per_buffer=CHUNK,  #
-                                   # start=False,  #
+                                   output_device_index=None,
+                                   frames_per_buffer=CHUNK,  #
                                    stream_callback=live_bypass_callback2)
 
     loopSectionStream = p_loopSectionStream.open(format=p_loopSectionStream.get_format_from_width(WIDTH),
@@ -136,9 +135,8 @@ if os.uname().nodename.lower() == 'raspberrypi':
                                                  rate=RATE,
                                                  # input=True,
                                                  output=True,
-                                                 #output_device_index=input_device_index,
+                                                 output_device_index=None,
                                                  frames_per_buffer=CHUNK,  #
-                                                 # start=False, #
                                                  stream_callback=loop_section_callback2)
 
 
@@ -165,7 +163,7 @@ else:
                                                  stream_callback=loop_section_callback2)
 
 
-liveStream.start_stream()
+#liveStream.start_stream()
 #loopSectionStream.start_stream()
 
 while True:
