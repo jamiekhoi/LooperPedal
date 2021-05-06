@@ -8,6 +8,7 @@ import time
 import pyaudio
 import wave
 import os
+from collections import deque
 
 WIDTH = 2
 dtype = 'int' + str(8*WIDTH)  # 'int16'
@@ -19,6 +20,8 @@ WAVE_OUTPUT_FILENAME = "output.wav"
 LOOPING = False
 loop_frames = b''
 loop_frame_index = 0
+
+bypass_queue = deque()
 
 p_liveStream = pyaudio.PyAudio()
 # FORMAT = p.get_format_from_width(WIDTH)
@@ -34,11 +37,11 @@ def save_loop():  # Save loop
     wf.close()
 
 
-def live_bypass_callback(in_data, frame_count, time_info, status):
+def live_bypass_callback_depricated(in_data, frame_count, time_info, status):
     return in_data, pyaudio.paContinue
 
 
-def loop_section_callback(in_data, frame_count, time_info, status):
+def loop_section_callback_depricated(in_data, frame_count, time_info, status):
     global loop_frames, loop_frame_index
     loop_section_length = len(in_data)  # = frame_count * CHANNELS * WIDTH
     assert len(in_data) == frame_count * CHANNELS * WIDTH
@@ -67,7 +70,9 @@ def loop_section_callback(in_data, frame_count, time_info, status):
 
 def live_bypass_callback2(in_data, frame_count, time_info, status):
     global loop_frames
-    assert len(in_data) == frame_count * CHANNELS * WIDTH
+    assert len(in_data) == frame_count * CHANNELS * WIDTH, 'in_data length('+str(len(in_data))+'), vs '+str(frame_count * CHANNELS * WIDTH)
+
+    bypass_queue.append(in_data)
 
     if LOOPING:
         loop_frames += in_data
@@ -102,10 +107,18 @@ def loop_section_callback2(in_data, frame_count, time_info, status):
     return out_data, pyaudio.paContinue
 
 
+def queue_callback(in_data, frame_count, time_info, status):
+    try:
+        out_data = bypass_queue.popleft()
+    except IndexError:
+        out_data = bytes([0 for _ in range(frame_count * WIDTH * CHANNELS)])
+    return out_data, pyaudio.paContinue
+
+
 if os.uname().nodename.lower() == 'raspberrypi':
     # TODO(BUG): Loop playback not working on RaspberryPi
     print('Running on RaspberryPi')
-    CHUNK = 1024*3  # Higher chunk stopped underrun
+    CHUNK = 128#1024  # Todo: Higher chunk stopped underrun but also causes the audio output to be delayed
 
     input_device_index = None
     while input_device_index is None:
@@ -125,8 +138,9 @@ if os.uname().nodename.lower() == 'raspberrypi':
                                    channels=CHANNELS,
                                    rate=RATE,
                                    input=True,
-                                   output=True,
-                                   output_device_index=None,
+                                   #output=True,
+                                   #input_device_index=input_device_index,
+                                   #output_device_index=input_device_index,
                                    frames_per_buffer=CHUNK,  #
                                    stream_callback=live_bypass_callback2)
 
@@ -135,9 +149,19 @@ if os.uname().nodename.lower() == 'raspberrypi':
                                                  rate=RATE,
                                                  # input=True,
                                                  output=True,
-                                                 output_device_index=None,
+                                                 #output_device_index=None,
                                                  frames_per_buffer=CHUNK,  #
                                                  stream_callback=loop_section_callback2)
+    p_liveStreamOutput = pyaudio.PyAudio()
+    liveStreamOutput = p_liveStreamOutput.open(format=p_liveStreamOutput.get_format_from_width(WIDTH),
+                                               channels=CHANNELS,
+                                               rate=RATE,
+                                               # input=True,
+                                               output=True,
+                                               # output_device_index=None,
+                                               frames_per_buffer=CHUNK,  #
+                                               stream_callback=queue_callback)
+
 
 
 else:
